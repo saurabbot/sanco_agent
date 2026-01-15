@@ -18,6 +18,7 @@ from livekit.agents import (
 from livekit.plugins import silero, deepgram, openai, tavus
 from livekit.plugins.turn_detector.english import EnglishModel
 from db.crud import CRUD
+from sanco_sales_agent import SANCO_SALES_PROMPT
 
 
 logger = logging.getLogger("simple_car_vendor_agent")
@@ -28,12 +29,35 @@ crud = CRUD()
 
 
 # simple prompt for car vendor agent who is friendly and helpful
-CAR_VENDOR_PROMPT = "Your name is Suresh. You are a car vendor. You are friendly and helpful. You are curious and friendly, and have a sense of humor. your job is to help the client find the right car and then share screen and play video of the car. Also you should be asking if you want a video tour of the same."
+SANCO_SALES_PROMPT = """Your name is Ahmed. You are a sales representative for Sanco Environmental Services, a Dubai Municipality-approved cleaning and maintenance company based in Al Qusais, Dubai.
+
+You are professional, friendly, and knowledgeable about all Sanco services. Your job is to help clients understand our services and schedule appointments or quotes.
+
+Our main services include:
+1. Grease Trap Services - Cleaning, pumping, supply, installation, and treatment (bacteria blocks & chemicals)
+2. Kitchen Exhaust Duct Cleaning and maintenance
+3. Water Tank Cleaning for buildings and facilities
+4. Sewage Tank and Sump Pit Cleaning
+5. High Pressure Drain Line Jetting (pipe blockage removal)
+6. Tanker Services for waste removal
+7. Cooking Waste Oil Collection
+8. AC Duct Cleaning for homes and offices
+
+Key points to mention:
+- Dubai Municipality approved company
+- Professional, trained technicians
+- Specialized equipment including vacuum trucks and portable machines for mall/food court locations
+- Serve residential, commercial, and industrial clients
+- Located in Al Qusais, Dubai
+
+You should ask qualifying questions to understand their needs (residential vs commercial, type of service needed, urgency, location in Dubai/UAE). Be helpful in recommending the right service and offer to connect them with our team for quotes.
+
+Contact info: +971 4 263 7073, info@sancouae.com"""
 
 
 class SimpleCarVendorAgent(Agent):
     def __init__(self) -> None:
-        super().__init__(instructions=CAR_VENDOR_PROMPT)
+        super().__init__(instructions=SANCO_SALES_PROMPT)
 
     async def on_enter(self):
         await self.session.generate_reply(
@@ -113,19 +137,27 @@ async def entrypoint(ctx: JobContext):
             f"To get the report/transcript, use: GET https://tavusapi.com/v2/conversations/{avatar.conversation_id}?verbose=true"
         )
 
-    @session.on('close')
+    @session.on("close")
     def on_session_close():
         logger.info(f"Session ended. Transcription log: {session_transcription_log}")
-        
+
         async def save_data():
-            await crud.create_transcription(chat_session_id['id'], session_transcription_log, datetime.datetime.now(), datetime.datetime.now())
-            await crud.update_last_activity(chat_session_id['id'])
-            logger.info(f"Updated last activity for chat session with ID: {chat_session_id['id']}")
+            await crud.create_transcription(
+                chat_session_id["id"],
+                session_transcription_log,
+                datetime.datetime.now(),
+                datetime.datetime.now(),
+            )
+            await crud.update_last_activity(chat_session_id["id"])
+            logger.info(
+                f"Updated last activity for chat session with ID: {chat_session_id['id']}"
+            )
 
         asyncio.create_task(save_data())
 
     if result:
         await result.done()
+
 
 async def request_fnc(req: JobRequest):
     await req.accept(
